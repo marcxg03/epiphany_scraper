@@ -1,0 +1,6 @@
+.env
+output/*.csv
+output/*.json
+output/seen_ids.json
+__pycache__
+.DS_Store
