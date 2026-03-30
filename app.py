@@ -1,12 +1,14 @@
 from pathlib import Path
 import json
 import os
+import tempfile
 
 import streamlit as st
 from dotenv import load_dotenv
 
 from modules.deduplicator import filter_new, mark_seen
 from modules.exporter import export_records
+from modules.pdf_processor import PDFExtractionError, process_pdf
 from modules.reddit_scraper import (
     RedditCredentialsError,
     RedditRateLimitError,
@@ -63,7 +65,9 @@ def initialize_session_state() -> None:
     st.session_state.setdefault("records", [])
     st.session_state.setdefault("duplicate_count", 0)
     st.session_state.setdefault("total_records_in_bank", 0)
-    st.session_state.setdefault("scrape_attempted", False)
+    st.session_state.setdefault("run_attempted", False)
+    st.session_state.setdefault("empty_results_message", "No posts found matching your search terms.")
+    st.session_state.setdefault("pdf_file", None)
 
 
 def parse_search_terms(raw_search_terms: str) -> list[str]:
@@ -92,11 +96,12 @@ def render_results() -> None:
     records = st.session_state.get("records", [])
     duplicate_count = st.session_state.get("duplicate_count", 0)
     total_records_in_bank = st.session_state.get("total_records_in_bank", load_seen_count())
-    scrape_attempted = st.session_state.get("scrape_attempted", False)
+    run_attempted = st.session_state.get("run_attempted", False)
+    empty_results_message = st.session_state.get("empty_results_message", "No posts found matching your search terms.")
 
     if not records:
-        if scrape_attempted:
-            st.info("No posts found matching your search terms.")
+        if run_attempted:
+            st.info(empty_results_message)
             st.write(f"0 new records retrieved. {total_records_in_bank} total records in bank.")
             if duplicate_count > 0:
                 st.write(f"{duplicate_count} duplicates skipped.")
@@ -133,6 +138,9 @@ def render_results() -> None:
             exported_count = export_records(records)
             mark_seen(records)
             st.session_state["records"] = []
+            st.session_state["duplicate_count"] = 0
+            st.session_state["run_attempted"] = False
+            st.session_state["empty_results_message"] = "No posts found matching your search terms."
             st.session_state["total_records_in_bank"] = load_seen_count()
             st.success(f"{exported_count} records exported successfully.")
             st.rerun()
@@ -172,8 +180,12 @@ def main() -> None:
 
     with right_column:
         st.subheader("PDF Processor")
-        st.file_uploader("Drop a PDF here", type=["pdf"])
-        st.button("Run PDF Extraction", disabled=True)
+        uploaded_pdf = st.file_uploader("Drop a PDF here", type=["pdf"])
+        st.session_state["pdf_file"] = uploaded_pdf
+        run_pdf_extraction = st.button(
+            "Run PDF Extraction",
+            disabled=st.session_state.get("pdf_file") is None,
+        )
 
     if run_reddit_scrape:
         search_terms = parse_search_terms(raw_search_terms)
@@ -187,18 +199,19 @@ def main() -> None:
             st.session_state["records"] = new_records
             st.session_state["duplicate_count"] = duplicate_count
             st.session_state["total_records_in_bank"] = load_seen_count() + len(new_records)
-            st.session_state["scrape_attempted"] = True
+            st.session_state["run_attempted"] = True
+            st.session_state["empty_results_message"] = "No posts found matching your search terms."
         except ValueError as error:
             st.session_state["records"] = []
             st.session_state["duplicate_count"] = 0
             st.session_state["total_records_in_bank"] = load_seen_count()
-            st.session_state["scrape_attempted"] = False
+            st.session_state["run_attempted"] = False
             st.error(str(error))
         except RedditCredentialsError:
             st.session_state["records"] = []
             st.session_state["duplicate_count"] = 0
             st.session_state["total_records_in_bank"] = load_seen_count()
-            st.session_state["scrape_attempted"] = False
+            st.session_state["run_attempted"] = False
             st.error(
                 "Reddit credentials not configured. Please complete setup in your .env file — see REDDIT_API_SETUP.md."
             )
@@ -206,20 +219,76 @@ def main() -> None:
             st.session_state["records"] = []
             st.session_state["duplicate_count"] = 0
             st.session_state["total_records_in_bank"] = load_seen_count()
-            st.session_state["scrape_attempted"] = False
+            st.session_state["run_attempted"] = False
             st.error("Subreddit not found or is private. Check the URL and try again.")
         except RedditRateLimitError:
             st.session_state["records"] = []
             st.session_state["duplicate_count"] = 0
             st.session_state["total_records_in_bank"] = load_seen_count()
-            st.session_state["scrape_attempted"] = False
+            st.session_state["run_attempted"] = False
             st.error("Reddit rate limit reached. Please wait 60 seconds and try again.")
         except Exception as error:
             st.session_state["records"] = []
             st.session_state["duplicate_count"] = 0
             st.session_state["total_records_in_bank"] = load_seen_count()
-            st.session_state["scrape_attempted"] = False
+            st.session_state["run_attempted"] = False
             st.error(f"Unexpected error: {str(error)}")
+
+    if run_pdf_extraction:
+        uploaded_file = st.session_state.get("pdf_file")
+        temp_path = None
+
+        try:
+            if not os.getenv("ANTHROPIC_API_KEY", "").strip():
+                raise PDFExtractionError(
+                    "Anthropic API key not configured. Add ANTHROPIC_API_KEY to your .env file."
+                )
+            if uploaded_file is None:
+                raise PDFExtractionError("Please upload a PDF before running extraction.")
+
+            file_suffix = Path(uploaded_file.name).suffix or ".pdf"
+            file_stem = Path(uploaded_file.name).stem or "uploaded_pdf"
+            safe_stem = "".join(character if character.isalnum() else "_" for character in file_stem)
+
+            with tempfile.NamedTemporaryFile(
+                delete=False,
+                suffix=file_suffix,
+                prefix=f"{safe_stem}_",
+            ) as temporary_file:
+                temporary_file.write(uploaded_file.getvalue())
+                temp_path = temporary_file.name
+
+            with st.spinner("Extracting passages from PDF..."):
+                extracted_records = process_pdf(temp_path)
+                for record in extracted_records:
+                    record["source_id"] = uploaded_file.name
+                    record["title"] = uploaded_file.name
+                new_records = filter_new(extracted_records)
+
+            duplicate_count = len(extracted_records) - len(new_records)
+            st.session_state["records"] = new_records
+            st.session_state["duplicate_count"] = duplicate_count
+            st.session_state["total_records_in_bank"] = load_seen_count() + len(new_records)
+            st.session_state["run_attempted"] = True
+            st.session_state["empty_results_message"] = "No candidate passages found in this PDF."
+        except PDFExtractionError as error:
+            st.session_state["records"] = []
+            st.session_state["duplicate_count"] = 0
+            st.session_state["total_records_in_bank"] = load_seen_count()
+            st.session_state["run_attempted"] = False
+            st.error(str(error))
+        except Exception as error:
+            st.session_state["records"] = []
+            st.session_state["duplicate_count"] = 0
+            st.session_state["total_records_in_bank"] = load_seen_count()
+            st.session_state["run_attempted"] = False
+            st.error(f"Unexpected error: {str(error)}")
+        finally:
+            if temp_path and os.path.exists(temp_path):
+                try:
+                    os.remove(temp_path)
+                except OSError:
+                    pass
 
     render_results()
 

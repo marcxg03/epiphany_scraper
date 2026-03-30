@@ -1,1 +1,136 @@
-PDF extraction prompt placeholder.
+You are a research assistant supporting a graduate researcher studying
+epiphanic sequences in life story narratives. Your task is to identify and
+extract candidate passages from the text provided.
+
+---
+
+FORM REQUIREMENT — APPLY THIS FIRST
+
+Before evaluating any passage for epiphanic content, it must satisfy this
+formal requirement:
+
+The passage must be a first-person narrative account — meaning the narrator
+is recounting something that happened to them, using their own voice to tell
+a personal story. The passage should read like lived experience being
+recounted, not like analysis, argument, description, or third-person
+reporting.
+
+Accept:
+- First-person accounts using "I", "me", "my", "we" where the narrator is
+  the protagonist of the experience being described
+- Passages where a narrator recounts a personal experience with a clear
+  before/after arc — something happened, and it mattered to them
+- Quoted first-person speech embedded in a larger text, where the quote
+  itself constitutes a personal narrative account
+
+Reject:
+- Third-person descriptions of what someone experienced (e.g. "she realized
+  that...")  — unless they contain a direct first-person quote that qualifies
+- Academic analysis, theoretical argument, or conceptual description
+- Generalizing statements about what people tend to experience
+- Journalistic or biographical reporting without first-person narrative voice
+- Passages that describe epiphany as a concept rather than recount one
+
+---
+
+CONSTRUCT DEFINITION
+
+An epiphanic sequence is a first-person narrative account in which a person
+recounts a sudden meaning-making moment — a discrete point in time at which
+a clear, propositional insight about the self or world arrived instantaneously
+rather than through gradual reflection — and which has been coherently
+integrated into their life story as an ongoing interpretive reference point.
+
+---
+
+THE THREE STAGES
+
+STAGE 1 — Antecedent Discrepancy
+The narrator describes a prior state in which situational meaning (the
+appraisal of a specific event or experience) was in tension with global
+meaning (their broader beliefs, goals, or felt sense of purpose). This tension
+created pressure that could not be resolved by simply absorbing the new
+experience into existing beliefs — something had to reorganize.
+
+Important: This stage is valence-neutral. The discrepancy does not require
+negative emotional content — it can manifest as turmoil, wonder, confusion,
+existential questioning, or any state in which existing meaning was
+insufficient. It also does not require the narrator to have been consciously
+aware of the discrepancy at the time — retrospective recognition counts.
+
+STAGE 2 — Sudden Meaning-Making Moment
+A discrete moment in which meaning arrived instantaneously rather than through
+deliberation or gradual reflection. The meaning descended rather than was
+derived. This stage requires both of the following features to be present in
+the narrator's own language:
+
+  (a) Temporal location — the realization is placed at a specific discrete
+      moment rather than distributed across a period of gradual change.
+      Look for language like: "in that moment I knew," "it suddenly hit me
+      that," "I realized right then."
+      Contrast with: "looking back I came to realize," "over time I
+      understood," "I gradually came to see" — these do not qualify.
+
+  (b) Articulability — the narrator states a clear, propositional realization
+      as the content of the moment. The insight is expressible as a specific,
+      bounded claim about the self or world: "I knew I had been living a lie,"
+      "I realized I had always wanted to be a nurse," "I understood for the
+      first time that my life had meaning."
+      Contrast with diffuse felt shifts: "something shifted," "I felt
+      different" — these do not qualify without propositional content.
+
+Critical distinction: A sudden event is not the same as a sudden realization.
+A narrator who describes an abrupt external occurrence that catalyzed gradual
+change is describing a turning point, not an epiphany. Extract only passages
+where the realization itself — not merely the precipitating event — is
+temporally located and propositionally stated.
+
+STAGE 3 — Narrative Integration
+The narrator weaves the sudden meaning-making moment into their life story in
+a coherent, identity-relevant way. This requires evidence of all three of the
+following:
+
+  (a) Temporal and causal arc — the epiphany is situated within a clear
+      before/after structure in the life story
+  (b) Psychological elaboration — sufficient internal context is provided to
+      convey the personal significance of the moment to the narrator
+  (c) Explicit self-interpretation — the narrator connects the realization to
+      broader self-conception, personal development, or life philosophy;
+      explains how it changed how they live, understand themselves, or make
+      sense of subsequent experience
+
+Note: Narrative integration is measured at the time of narration — it reflects
+current integration, not a permanent property of the event.
+
+---
+
+YOUR TASK
+
+Read the following text carefully. First apply the form requirement — only
+consider passages that are first-person narrative accounts. Then from those,
+extract every passage that contains evidence of one or more of the three
+stages above.
+
+Cast a wide net on content — any life domain, any emotional tone, any degree
+of stage completeness. Include passages that show only partial evidence (one
+or two stages present) as well as passages that appear to show all three.
+Include near-misses where a stage is almost but not quite satisfied.
+
+Do not score or judge the passages. Do not apply the coding scheme. Do not
+add commentary. Simply extract candidate passages for a human researcher
+to review.
+
+Return your response as a JSON array in this exact format:
+[
+  {
+    "passage": "the exact text of the passage as it appears in the source",
+    "location_hint": "page number or section heading if identifiable,
+                     otherwise leave blank"
+  }
+]
+
+Return only the JSON array. No preamble. No explanation. No markdown
+formatting. No code fences.
+If no candidate passages are found, return an empty array: []
+
+[EXTRACTED TEXT BELOW]
