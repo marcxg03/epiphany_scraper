@@ -12,7 +12,7 @@ import streamlit as st
 from dotenv import load_dotenv
 
 from modules.deduplicator import filter_new, load_seen_ids, mark_seen
-from modules.exporter import export_records, RECORD_FIELDS
+from modules.exporter import export_records, normalize_record, RECORD_FIELDS
 from modules.pdf_processor import PDFExtractionError, process_pdf
 from modules.reddit_scraper import ScraperError, scrape_url
 
@@ -23,7 +23,10 @@ REQUIRED_ENV_VARS = [
 
 
 def _derive_source_name(records: list) -> str:
-    """Return a filesystem-safe name derived from the first record's source."""
+    """Return a filesystem-safe name derived from the first record's source.
+
+    PDFs strip the file extension; reddit and url records use source_id directly.
+    """
     if not records:
         return "export"
     record = records[0]
@@ -35,17 +38,35 @@ def _derive_source_name(records: list) -> str:
 
 
 def _build_csv_content(records: list) -> str:
+    """Serialize records to a CSV string using the canonical schema field order."""
     buf = io.StringIO()
     writer = csv.DictWriter(buf, fieldnames=RECORD_FIELDS)
     writer.writeheader()
-    for record in records:
-        writer.writerow({field: record.get(field, "") for field in RECORD_FIELDS})
+    writer.writerows(normalize_record(r) for r in records)
     return buf.getvalue()
 
 
 def _build_json_content(records: list) -> str:
-    normalized = [{field: record.get(field, "") for field in RECORD_FIELDS} for record in records]
-    return json.dumps(normalized, indent=2)
+    """Serialize records to a JSON string using the canonical schema field order."""
+    return json.dumps([normalize_record(r) for r in records], indent=2)
+
+
+@st.cache_data
+def _load_bank_records(mtime: float) -> list:
+    """Load example_bank.json, cached by file mtime to avoid redundant disk reads.
+
+    Returns the record list, or an empty list on any error. A return value of None
+    signals a malformed (unparseable) JSON file so the caller can warn the user.
+    """
+    bank_path = Path("output") / "example_bank.json"
+    try:
+        with bank_path.open("r", encoding="utf-8") as f:
+            data = json.load(f)
+        return data if isinstance(data, list) else []
+    except json.JSONDecodeError:
+        return None  # type: ignore[return-value]  # sentinel: malformed file
+    except OSError:
+        return []
 
 
 def ensure_output_directory() -> Path:
@@ -132,19 +153,15 @@ def render_bank_viewer() -> None:
     st.sidebar.markdown("---")
     st.sidebar.subheader("Example Bank")
 
-    all_records: list = []
-    if bank_path.exists():
-        try:
-            with bank_path.open("r", encoding="utf-8") as f:
-                data = json.load(f)
-            if not isinstance(data, list):
-                data = []
-            all_records = data
-        except json.JSONDecodeError:
-            st.sidebar.warning("Bank file could not be read.")
-            return
-        except OSError:
-            return
+    if not bank_path.exists():
+        st.sidebar.caption("Bank is empty.")
+        return
+
+    all_records = _load_bank_records(bank_path.stat().st_mtime)
+
+    if all_records is None:
+        st.sidebar.warning("Bank file could not be read.")
+        return
 
     if not all_records:
         st.sidebar.caption("Bank is empty.")

@@ -120,7 +120,6 @@
 from datetime import date
 import hashlib
 import os
-from pathlib import Path
 import re
 from urllib.parse import urlparse
 
@@ -129,8 +128,14 @@ from bs4 import BeautifulSoup
 from anthropic import Anthropic
 
 from modules.pdf_processor import (
+    EXTRACTION_MODEL,
+    NEAR_DUPLICATE_PREFIX_LEN,
+    SYSTEM_PROMPT,
     PDFExtractionError,
+    _chunk_text,
+    _dedup_near_duplicates,
     _extract_response_text,
+    _load_prompt,
     _parse_claude_json,
     _strip_markdown_fences,
 )
@@ -140,46 +145,12 @@ class ScraperError(Exception):
     pass
 
 
-_CHUNK_SIZE = 15000
-_CHUNK_OVERLAP = 3000
-_NEAR_DUPLICATE_PREFIX_LEN = 200
-_EXTRACTION_MODEL = "claude-sonnet-4-6"
-_SYSTEM_PROMPT = "You are a precise research assistant. Follow instructions exactly."
-_PROMPT_PATH = Path(__file__).resolve().parent.parent / "prompts" / "pdf_extraction_prompt.txt"
-
-
-def _load_prompt() -> str:
-    return _PROMPT_PATH.read_text(encoding="utf-8").strip()
-
-
-def _chunk_text(text: str) -> list[str]:
-    if len(text) <= _CHUNK_SIZE:
-        return [text]
-
-    chunks = []
-    start = 0
-    while start < len(text):
-        end = start + _CHUNK_SIZE
-        if end >= len(text):
-            chunks.append(text[start:])
-            break
-        for sep in ("\n\n", "\n"):
-            boundary = text.rfind(sep, start, end)
-            if boundary > start:
-                end = boundary
-                break
-        chunks.append(text[start:end])
-        start = end - _CHUNK_OVERLAP
-
-    return chunks
-
-
 def _call_claude(client: Anthropic, prompt: str, content: str) -> list[dict]:
     try:
         response = client.messages.create(
-            model=_EXTRACTION_MODEL,
+            model=EXTRACTION_MODEL,
             max_tokens=4000,
-            system=_SYSTEM_PROMPT,
+            system=SYSTEM_PROMPT,
             messages=[{"role": "user", "content": f"{prompt}\n\n{content}"}],
         )
     except Exception as error:
@@ -344,18 +315,7 @@ def _scrape_reddit_json(url: str, min_length: int) -> list:
     else:
         raise ScraperError("Reddit returned an unexpected JSON structure.")
 
-    # Near-duplicate deduplication: keep longest version of passages sharing the same opening
-    records.sort(key=lambda r: len(r["text"]), reverse=True)
-    seen_prefixes: set[str] = set()
-    deduped: list[dict] = []
-    for record in records:
-        prefix = record["text"][:_NEAR_DUPLICATE_PREFIX_LEN]
-        if prefix in seen_prefixes:
-            continue
-        seen_prefixes.add(prefix)
-        deduped.append(record)
-
-    return deduped
+    return _dedup_near_duplicates(records)
 
 
 def scrape_url(url: str, min_length: int) -> list:
@@ -410,15 +370,4 @@ def scrape_url(url: str, min_length: int) -> list:
             seen_record_ids.add(record["record_id"])
             records.append(record)
 
-    # Near-duplicate deduplication: keep the longest version of passages sharing the same opening
-    records.sort(key=lambda r: len(r["text"]), reverse=True)
-    seen_prefixes: set[str] = set()
-    deduped: list[dict] = []
-    for record in records:
-        prefix = record["text"][:_NEAR_DUPLICATE_PREFIX_LEN]
-        if prefix in seen_prefixes:
-            continue
-        seen_prefixes.add(prefix)
-        deduped.append(record)
-
-    return deduped
+    return _dedup_near_duplicates(records)

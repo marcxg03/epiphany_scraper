@@ -235,6 +235,18 @@ def _parse_claude_json(response_text: str) -> list:
     )
 
 
+def _dedup_near_duplicates(records: list[dict]) -> list[dict]:
+    """Returns records with near-duplicates removed, keeping the longest of each opening."""
+    deduped: list[dict] = []
+    seen_prefixes: set[str] = set()
+    for record in sorted(records, key=lambda r: len(r["text"]), reverse=True):
+        prefix = record["text"][:NEAR_DUPLICATE_PREFIX_LEN]
+        if prefix not in seen_prefixes:
+            seen_prefixes.add(prefix)
+            deduped.append(record)
+    return deduped
+
+
 def _call_claude(client: Anthropic, prompt: str, content: str) -> list[dict]:
     try:
         response = client.messages.create(
@@ -307,14 +319,4 @@ def process_pdf(file_path: str) -> list:
     # Near-duplicate deduplication: if two passages share the same opening
     # NEAR_DUPLICATE_PREFIX_LEN characters, keep only the longer one.
     # This catches overlap-region variants where MD5s differ but content is the same narrative.
-    records.sort(key=lambda r: len(r["text"]), reverse=True)
-    seen_prefixes: set[str] = set()
-    deduped: list[dict] = []
-    for record in records:
-        prefix = record["text"][:NEAR_DUPLICATE_PREFIX_LEN]
-        if prefix in seen_prefixes:
-            continue
-        seen_prefixes.add(prefix)
-        deduped.append(record)
-
-    return deduped
+    return _dedup_near_duplicates(records)

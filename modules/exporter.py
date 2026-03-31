@@ -39,13 +39,14 @@ def _load_existing_json_records() -> list:
     return data if isinstance(data, list) else []
 
 
-def _normalize_record(record: dict) -> dict:
+def normalize_record(record: dict) -> dict:
+    """Returns a new dict containing exactly the schema fields, filling missing ones with ''."""
     return {field: record.get(field, "") for field in RECORD_FIELDS}
 
 
 def export_records(records: list) -> int:
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-    normalized_records = [_normalize_record(record) for record in records]
+    normalized_records = [normalize_record(record) for record in records]
 
     csv_exists = CSV_PATH.exists()
     with CSV_PATH.open("a", encoding="utf-8", newline="") as csv_file:
