@@ -36,10 +36,7 @@ def _load_existing_json_records() -> list:
     except json.JSONDecodeError:
         return []
 
-    if isinstance(data, list):
-        return data
-
-    return []
+    return data if isinstance(data, list) else []
 
 
 def _normalize_record(record: dict) -> dict:

@@ -7,7 +7,7 @@ from pathlib import Path
 SEEN_IDS_PATH = Path("output/seen_ids.json")
 
 
-def _load_seen_ids() -> set[str]:
+def load_seen_ids() -> set[str]:
     if not SEEN_IDS_PATH.exists():
         return set()
 
@@ -34,12 +34,15 @@ def _write_seen_ids(seen_ids: set[str]) -> None:
 
 
 def filter_new(records: list) -> list:
-    seen_ids = _load_seen_ids()
-    return [record for record in records if record.get("record_id") not in seen_ids]
+    seen_ids = load_seen_ids()
+    return [
+        record for record in records
+        if isinstance(record, dict) and record.get("record_id") not in seen_ids
+    ]
 
 
 def mark_seen(records: list) -> None:
-    seen_ids = _load_seen_ids()
+    seen_ids = load_seen_ids()
     seen_ids.update(
         record["record_id"]
         for record in records

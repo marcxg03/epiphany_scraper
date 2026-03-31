@@ -106,24 +106,39 @@ current integration, not a permanent property of the event.
 
 YOUR TASK
 
-Read the following text carefully. First apply the form requirement — only
-consider passages that are first-person narrative accounts. Then from those,
-extract every passage that contains evidence of one or more of the three
-stages above.
+Read the following text carefully. Identify every passage that contains
+evidence of one or more of the three stages above, applying the form
+requirement first — first-person narrative accounts only.
 
-Cast a wide net on content — any life domain, any emotional tone, any degree
-of stage completeness. Include passages that show only partial evidence (one
-or two stages present) as well as passages that appear to show all three.
-Include near-misses where a stage is almost but not quite satisfied.
+When you identify a candidate passage, extract the COMPLETE narrative
+account — not just the sentence where a stage marker appears. A complete
+narrative account includes:
 
-Do not score or judge the passages. Do not apply the coding scheme. Do not
-add commentary. Simply extract candidate passages for a human researcher
-to review.
+  - The full setup and context leading into the experience
+  - The experience or realization itself
+  - Any reflection, consequence, or integration that follows in the same
+    narrative unit
+
+Do not truncate passages mid-story. If a narrator begins recounting an
+experience, extract from the beginning of that account to its natural
+conclusion. Err on the side of extracting more rather than less — a
+researcher can trim a passage but cannot reconstruct what was left out.
+
+Cast a wide net on content — any life domain, any emotional tone, any
+degree of stage completeness. Include passages that show only partial
+evidence (one or two stages present) as well as passages that appear to
+show all three. Include near-misses where a stage is almost but not
+quite satisfied.
+
+Do not score or judge the passages. Do not apply the coding scheme. Do
+not add commentary. Simply extract complete candidate narrative accounts
+for a human researcher to review.
 
 Return your response as a JSON array in this exact format:
 [
   {
-    "passage": "the exact text of the passage as it appears in the source",
+    "passage": "the complete narrative account exactly as it appears in
+               the source, from opening context to natural conclusion",
     "location_hint": "page number or section heading if identifiable,
                      otherwise leave blank"
   }
