@@ -1,6 +1,6 @@
 # Epiphany Narrative Example Bank Retrieval Tool
 
-Local research tool scaffold for retrieving and exporting candidate epiphanic accounts for manual coding.
+A local research tool that retrieves candidate epiphanic accounts and exports them for manual coding.
 
 ## Requirements
 
